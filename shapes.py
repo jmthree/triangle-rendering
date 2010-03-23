@@ -4,6 +4,7 @@
 '''
 __all__ = ['triangle', 'vector', 'color']
 
+from math import sin, cos, pi
 from collections import namedtuple
 
 class InvalidColor(Exception):
@@ -101,6 +102,36 @@ class vector(VectorBase):
     __add__ = add
     __sub__ = lambda self, other: self + (other * -1)
 
+    def rotate_x(self, degrees):
+        ''' Rotates this vector by the given amount of degrees about the x-axis
+            and return the resulting vector
+
+        >>> v = vector(1, 2, 3)
+        >>> v.rotate_x(90)
+        <vector x:1.0000 y:-3.0000 z:2.0000>
+        >>> v.rotate_x(180)
+        <vector x:1.0000 y:-2.0000 z:-3.0000>
+        '''
+        radians = degrees / 180.0 * pi
+        new_y = self.y * cos(radians) - self.z * sin(radians)
+        new_z = self.y * sin(radians) + self.z * cos(radians)
+        return vector(self.x, new_y, new_z)
+
+    def rotate_y(self, degrees):
+        ''' Rotates this vector by the given amount of degrees about the y-axis
+            and return the resulting vector
+
+        >>> v = vector(1, 2, 3)
+        >>> v.rotate_y(90)
+        <vector x:3.0000 y:2.0000 z:-1.0000>
+        >>> v.rotate_y(180)
+        <vector x:-1.0000 y:2.0000 z:-3.0000>
+        '''
+        radians = degrees / 180.0 * pi
+        new_x = self.x * cos(radians) + self.z * sin(radians)
+        new_z = self.z * cos(radians) - self.x * sin(radians)
+        return vector(new_x, self.y, new_z)
+
     def __repr__(self):
         return "<vector x:%.4f y:%.4f z:%.4f>" % self
 
@@ -121,6 +152,10 @@ class color(ColorBase):
             if not 0 <= v <= 1:
                 raise InvalidColor("%s value %s not between 0 and 1" % (n, v))
         return ColorBase.__new__(cls, r, g, b)
+
+    def scale(self, sc):
+        return color(self.r * sc, self.g * sc, self.b * sc)
+    __mul__ = scale
 
     def __repr__(self):
         return "<color r:%s g:%s b:%s>" % self
@@ -164,6 +199,29 @@ class triangle(TriangleBase):
         (<vector x:0.0000 y:1.0000 z:0.0000>, <color r:0 g:0 b:1>)
         '''
         return zip(self[0:3], self[3:6])
+
+    def flat_shade(self, light_vector):
+        n = (self.v1 - self.v0).cross(self.v2 - self.v0)
+        n_hat = n.normalize()
+        incident_vector = light_vector * -1
+        shade_value = n_hat.dot(incident_vector)
+        return triangle(self.v0, self.v1, self.v2, self.c0 * shade_value,
+                        self.c1 * shade_value, self.c2 * shade_value)
+
+    def rotate_x(self, degrees):
+        new_v0 = self.v0.rotate_x(degrees)
+        new_v1 = self.v1.rotate_x(degrees)
+        new_v2 = self.v2.rotate_x(degrees)
+        return triangle(new_v0, new_v1, new_v2, self.c0, self.c1, self.c2)
+
+    def rotate_y(self, degrees):
+        new_v0 = self.v0.rotate_y(degrees)
+        new_v1 = self.v1.rotate_y(degrees)
+        new_v2 = self.v2.rotate_y(degrees)
+        return triangle(new_v0, new_v1, new_v2, self.c0, self.c1, self.c2)
+
+    def scale(self, sc):
+        return triangle(self.v0 * sc, self.v1 * sc, self.v2 * sc, self.c0, self.c1, self.c2)
 
     def __repr__(self):
         return "<triangle v0:%s v1:%s v2:%s c0:%s c1:%s c2:%s>" % self
