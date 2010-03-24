@@ -1,7 +1,13 @@
+''' Displays the given triangles in the passed triangle file
+    as an object with flat surface shading. The triangles are
+    rendered in an order such that occulusion is taken into account
+'''
+
 import sys
 
 from pyglet import window
 from pyglet.gl import *
+from pyglet.window import key
 
 from shapes import *
 from util import load_triangle_file
@@ -9,11 +15,12 @@ from util import load_triangle_file
 WINDOW_WIDTH  = 1024
 WINDOW_HEIGHT = 768
 
-def draw_triangle(win, triangle):
-    ''' Draws a single triangle onto the screen '''
+def draw_triangle(win, tri):
+    ''' Draws a single shaded triangle onto the screen '''
     glLoadIdentity()
-    if triangle.is_ccw:
-        shaded = triangle.flat_shade(vector(0, 0, -1))
+    if tri.is_ccw:
+        shaded = tri.flat_shade(vector(0, 0, -1))
+        # offsets pyglet setting the center to the bottom left
         glTranslatef(win.width / 2, win.height / 2, 0)
         glBegin(GL_TRIANGLES)
         for vec, col in shaded.as_pairs():
@@ -26,77 +33,46 @@ def main(name, args):
         environment, and draws the triangles
     '''
     win = window.Window(WINDOW_WIDTH, WINDOW_HEIGHT)
+    win._keys = set([])
 
     triangles = load_triangle_file(name, args)
     win._triangles = triangles
 
-    # Initialize the opengl camera
-#    @win.event
-#    def on_resize(width, height):
-        #glViewport(0, 0, width, height)
-#        glMatrixMode(GL_PROJECTION)
-#        glLoadIdentity()
-#        glOrtho(0, width,
-#                0, height,
-#                -width, width)
-#        glOrtho(width / -2, width / 2,
-#                height / -2, WINDOW_HEIGHT / 2,
-#                width / -2, width / 2)
-#        gluPerspective(45, width / height, -2 * width, width * 2)
-#        glMatrixMode(GL_MODELVIEW)
-
     @win.event
     def on_key_press(key, modifier):
-        if key == window.key.LEFT:
-            win.__moving_left = True
-        elif key == window.key.RIGHT:
-            win.__moving_right = True
-        elif key == window.key.UP:
-            win.__moving_up = True
-        elif key == window.key.DOWN:
-            win.__moving_down = True
-        elif key == window.key.PLUS:
-            win.__scale_up = True
-        elif key == window.key.MINUS:
-            win.__scale_down = True
+        win._keys.add(key)
 
     @win.event
     def on_key_release(key, modifier):
-        if key == window.key.LEFT:
-            del(win.__moving_left)
-        elif key == window.key.RIGHT:
-            del(win.__moving_right)
-        elif key == window.key.UP:
-            del(win.__moving_up)
-        elif key == window.key.DOWN:
-            del(win.__moving_down)
-        elif key == window.key.PLUS:
-            del(win.__scale_up)
-        elif key == window.key.MINUS:
-            del(win.__scale_down)
+        if key in win._keys:
+            win._keys.remove(key)
 
     @win.event
     def on_draw():
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        for tri in sorted(win._triangles,
-                lambda t1, t2: min(t1.v0.z, t1.v1.z, t1.v2.z) < min(t2.v0.z, t2.v1.z, t2.v2.z) and -1 or 1):
+        # Sort the triangles first by the furthest Z value
+        def sort_by_z(tri1, tri2):
+            min_tri1 = min(tri1.v0.z, tri1.v1.z, tri1.v2.z)
+            min_tri2 = min(tri2.v0.z, tri2.v1.z, tri2.v2.z)
+            return [1, -1][min_tri1 < min_tri2]
+        for tri in sorted(win._triangles, sort_by_z):
             draw_triangle(win, tri)
 
     def execute_transforms(dt):
         transforms = [lambda t: t]
-        if hasattr(win, '__moving_left'):
+        if key.LEFT in win._keys:
             transforms.append(lambda t: t.rotate_y(-3))
-        elif hasattr(win, '__moving_right'):
+        elif key.RIGHT in win._keys:
             transforms.append(lambda t: t.rotate_y(3))
 
-        if hasattr(win, '__moving_up'):
+        if key.UP in win._keys:
             transforms.append(lambda t: t.rotate_x(-3))
-        elif hasattr(win, '__moving_down'):
+        elif key.DOWN in win._keys:
             transforms.append(lambda t: t.rotate_x(3))
 
-        if hasattr(win, '__scale_up'):
+        if key.PLUS in win._keys:
             transforms.append(lambda t: t.scale(1.1))
-        elif hasattr(win, '__scale_down'):
+        elif key.MINUS in win._keys:
             transforms.append(lambda t: t.scale(0.9))
 
         transform = reduce(lambda f, g: lambda t: g(f(t)), transforms)
@@ -104,7 +80,6 @@ def main(name, args):
 
     pyglet.clock.schedule(execute_transforms)
     pyglet.app.run()
-
 
 if __name__ == "__main__":
     main(sys.argv[0], sys.argv[1:])
