@@ -15,7 +15,7 @@ def parse_triangle_data(tri_lines):
     for num, line in enumerate(tri_lines):
         data = line.strip()
         if data and data[0] != "#":
-            values = [float(x) for x in data.split(" ")]
+            values = [float(x) for x in data.split()]
             if len(values) == 18:
                 point0 = vector(*values[0:3])
                 point1 = vector(*values[3:6])
